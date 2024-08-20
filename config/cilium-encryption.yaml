@@ -1,0 +1,24 @@
+# https://docs.cilium.io/en/stable/helm-reference/#id1
+
+kubeProxyReplacement: true
+k8sServiceHost: kind-control-plane
+k8sServicePort: 6443
+ipam:
+  mode: kubernetes
+l2announcements:
+  enabled: true
+hubble:
+  relay:
+    enabled: true
+
+  ui:
+    enabled: true
+
+encryption:
+  enabled: true
+  type: wireguard
+  
+  export:
+    static:
+      enabled: true
+      filePath: "stdout"

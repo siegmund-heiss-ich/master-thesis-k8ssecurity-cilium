@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: unrelated-backend-deployment
+  namespace: test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: unrelated-backend
+  template:
+    metadata:
+      labels:
+        app: unrelated-backend
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: kind-worker3
+      containers:
+      - name: unrelated-backend
+        image: backend:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: unrelated-backend
+  namespace: test
+spec:
+  selector:
+    app: unrelated-backend
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080

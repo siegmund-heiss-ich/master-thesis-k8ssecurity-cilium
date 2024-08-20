@@ -1,0 +1,18 @@
+tetragon:
+  enabled: true
+  export:
+    mode: "stdout"
+    filenames:
+      - "tetragon.log"
+    stdout:
+      enabledArgs: true
+      enabledCommand: true
+      image:
+        repository: "quay.io/cilium/hubble-export-stdout"
+        tag: "v1.0.4"
+      # Include any additional environment variables or volume mounts as needed
+      extraEnv: []
+      extraVolumeMounts: []
+  # Ensure to configure any required security contexts or resources according to your cluster's requirements
+  securityContext: {}
+  resources: {}

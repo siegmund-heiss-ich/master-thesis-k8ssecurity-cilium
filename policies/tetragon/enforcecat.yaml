@@ -1,0 +1,25 @@
+apiVersion: cilium.io/v1alpha1
+kind: TracingPolicyNamespaced
+metadata:
+  name: "block-command"
+  namespace: "test"
+spec:
+  kprobes:
+  - call: "sys_execve"
+    syscall: true
+    return: true
+    args:
+    - index: 0
+      type: "string"
+    returnArg:
+      index: 0
+      type: "int"
+    returnArgAction: "Post"
+    selectors:
+    - matchArgs:
+      - index: 0
+        operator: "Equal"
+        values:
+        - "/bin/cat"
+      matchActions:
+      - action: Sigkill

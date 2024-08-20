@@ -1,0 +1,130 @@
+<form version="1.1" theme="light">
+  <label>Hubble Flows</label>
+  <description>This dashboard visualizes network flows within the sandbox k8s cluster, replicating the Hubble-UI view.</description>
+  <fieldset submitButton="false">
+    <input type="dropdown" token="t_namespace" searchWhenChanged="true">
+      <label>Namespace</label>
+      <fieldForLabel>Namespace</fieldForLabel>
+      <fieldForValue>Namespace</fieldForValue>
+      <search>
+        <query>index="flows"  "flow.source.namespace"="*" 
+| rename "flow.source.namespace" AS Namespace
+| dedup Namespace 
+| table Namespace</query>
+        <earliest>-5m</earliest>
+        <latest>now</latest>
+      </search>
+      <default>kube-system</default>
+    </input>
+    <input type="radio" token="t_verdict" searchWhenChanged="true">
+      <label>Verdict</label>
+      <choice value="&quot;*&quot;">All</choice>
+      <choice value="&quot;Forwarded&quot;">Forwarded</choice>
+      <choice value="&quot;Dropped&quot;">Dropped</choice>
+      <choice value="&quot;Audit&quot;">Audit</choice>
+      <default>"*"</default>
+    </input>
+    <input type="dropdown" token="t_pseudo" searchWhenChanged="true">
+      <label>Time</label>
+      <choice value="rt-5min">Realtime</choice>
+      <choice value="last15">Last 15min</choice>
+      <choice value="last60">Last 60min</choice>
+      <change>
+        <condition label="Realtime">
+          <set token="custom_earliest">rt-5min</set>
+          <set token="custom_latest">rt</set>
+        </condition>
+        <condition label="Last 15min">
+          <set token="custom_earliest">-15min</set>
+          <set token="custom_latest">now</set>
+        </condition>
+        <condition label="Last 60min">
+          <set token="custom_earliest">-60min</set>
+          <set token="custom_latest">now</set>
+        </condition>
+      </change>
+      <default>last15</default>
+      <initialValue>last15</initialValue>
+    </input>
+  </fieldset>
+  <row>
+    <panel>
+      <title>Namespace: $t_namespace$</title>
+      <table>
+        <search>
+          <query>index="flows" ("flow.source.namespace"="$t_namespace$"
+  OR "flow.destination.namespace"="$t_namespace$")
+  AND NOT ("flow.destination.identity"=1 OR "flow.destination.identity"=4 OR "flow.destination.identity"=6)
+  AND NOT ("flow.source.identity"=1 OR "flow.source.identity"=4 OR "flow.source.identity"=6)
+  AND "flow.verdict"=$t_verdict$ NOT "flow.trace_reason"=REPLY
+
+| rename "flow.uuid" AS uuid
+| rename "flow.destination.labels{}" AS flow_destination_labels
+| rename "flow.source.labels{}" AS flow_source_labels
+| rename "flow.destination.namespace" AS dst_namespace
+| rename "flow.source.namespace" AS src_namespace
+| rename "flow.l4.TCP.destination_port" AS portTCP
+| rename "flow.l4.UDP.destination_port" AS portUDP
+| rename "flow.verdict" AS verdict
+| rename "flow.IP.destination" AS dst_IP
+| rename "flow.IP.source" AS src_IP
+| rename "flow.traffic_direction" AS direction
+
+| rex field=flow_source_labels "k8s\:(k8s-)?(app|job-name|component|control-plane|rsName)?(.kubernetes.io/name)?\=(?&lt;source_label_app&gt;[\w\_\-\.]+)"
+| rex field=flow_destination_labels "k8s\:(k8s-)?(app|job-name|component|control-plane|rsName)?(.kubernetes.io/name)?\=(?&lt;destination_label_app&gt;[\w\_\-\.]+)"
+| mvexpand source_label_app
+| mvexpand destination_label_app
+| dedup uuid
+| eval source_identity=if(direction="EGRESS", source_label_app,destination_label_app)
+| eval destination_identity=if(direction="EGRESS", destination_label_app,source_label_app)
+| eval source_identity =if( flow_source_labels="reserved:world", "world",source_identity)
+| eval destination_identity =if( flow_destination_labels="reserved:world", "world",destination_identity)
+
+| eval source_namespace/IP=case(
+    direction="EGRESS" AND source_identity!="world", src_namespace,
+    direction="INGRESS" AND source_identity!="world", dst_namespace,
+    direction="EGRESS" AND source_identity="world", src_IP,
+    direction="INGRESS" AND source_identity="world", dst_IP
+)
+| eval destination_namespace/IP=case(
+    direction="EGRESS" AND destination_identity!="world", dst_namespace,
+    direction="INGRESS" AND destination_identity!="world", src_namespace,
+    direction="EGRESS" AND destination_identity="world", dst_IP,
+    direction="INGRESS" AND destination_identity="world", src_IP
+)
+
+| eval port=if(portTCP NOT NULL, portTCP, portUDP)
+
+| sort -_time
+| table _time source_identity source_namespace/IP destination_identity destination_namespace/IP port direction verdict uuid</query>
+          <earliest>$custom_earliest$</earliest>
+          <latest>$custom_latest$</latest>
+        </search>
+        <option name="count">20</option>
+        <option name="drilldown">cell</option>
+        <option name="refresh.display">progressbar</option>
+        <drilldown>
+          <set token="t_uuid">$row.uuid$</set>
+        </drilldown>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <title>Detail to Flow ID $t_uuid$</title>
+      <event>
+        <search>
+          <query>index="flows" flow.uuid="$t_uuid$"</query>
+          <earliest>-60m@m</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="count">5</option>
+        <option name="list.drilldown">none</option>
+        <option name="maxLines">20</option>
+        <option name="raw.drilldown">none</option>
+        <option name="table.drilldown">none</option>
+        <option name="type">list</option>
+      </event>
+    </panel>
+  </row>
+</form>

@@ -1,0 +1,67 @@
+# https://github.com/open-telemetry/opentelemetry-helm-charts/tree/main/charts/opentelemetry-collector
+# https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/exporter/splunkhecexporter/README.md
+# https://docs.splunk.com/observability/en/gdi/opentelemetry/components/splunk-hec-exporter.html
+
+config:
+  exporters:
+    splunk_hec:
+      token: "" # Create new hec token in Splunk.
+      endpoint: "https://host.docker.internal:8088/services/collector/event"
+      index: "testcluster"
+      tls:
+        insecure_skip_verify: true
+
+  receivers:
+    kubeletstats:
+      collection_interval: 10s
+      #2024-06-11T10:27:58.735Z    error    scraperhelper/scrapercontroller.go:197    Error scraping metrics    {"kind": "receiver", "name": "kubeletstats", "data_type": "metrics", "error": "Get \"https://172.17.72.6:10250/stats/summary\": tls: failed to verify certificate: x509: cannot validate certificate for 172.17.72.6 because it doesn't contain any IP SANs", "scraper": "kubeletstats"}
+      insecure_skip_verify: true
+  
+  processors:
+    transform/index:
+      error_mode: ignore
+      log_statements:
+        - context: log
+          statements:
+            - set(resource.attributes["com.splunk.index"], "flows") where IsString(body) and IsMatch(body, "\"flow\":")
+            - set(resource.attributes["com.splunk.index"], "runtime") where IsString(body) and IsMatch(body, "\"process_exec\":")
+
+  service:
+    pipelines:
+      traces:
+        receivers: [otlp]
+        processors: []
+        exporters: [splunk_hec]
+      logs:
+        receivers: [otlp]
+        processors: [transform/index]
+        exporters: [splunk_hec]
+      metrics:
+        receivers: [otlp]
+        processors: []
+        exporters: [splunk_hec]
+
+mode: daemonset
+
+presets:
+  logsCollection:
+    enabled: true
+    includeCollectorLogs: true
+  kubernetesAttributes:
+    enabled: true
+    extractAllPodLabels: true
+    extractAllPodAnnotations: true
+  kubeletMetrics:
+    enabled: true
+  kubernetesEvents:
+    enabled: true
+  hostMetrics:
+    enabled: true
+
+resources:
+  limits:
+    cpu: "1"
+    memory: "1Gi"
+  requests:
+    cpu: "200m"
+    memory: "400Mi"

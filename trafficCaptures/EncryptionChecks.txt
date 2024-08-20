@@ -1,0 +1,7 @@
+IsEncrypted:
+root@kind-worker2:/home/cilium# cilium-dbg status | grep Encryption
+Encryption: Wireguard [cilium_wg0 (Pubkey: <..>, Port: 51871, Peers: 3)]
+
+IsNotEncrypted:
+root@kind-worker2:/home/cilium# cilium-dbg status | grep Encryption
+Encryption: Disabled  

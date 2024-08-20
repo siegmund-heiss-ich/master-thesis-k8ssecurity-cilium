@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: client-deployment
+  namespace: test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: client
+  template:
+    metadata:
+      labels:
+        app: client
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: kind-worker2
+      containers:
+      - name: client
+        image: client:latest
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: BACKEND_URL
+          value: "http://backend.test.svc.cluster.local:5000/api/data"

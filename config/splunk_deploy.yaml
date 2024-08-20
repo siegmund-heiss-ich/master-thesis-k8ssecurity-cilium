@@ -1,0 +1,16 @@
+services:
+    splunk:
+        stdin_open: true
+        tty: true
+        environment:
+            - SPLUNK_START_ARGS=--accept-license
+            - SPLUNK_PASSWORD=splunkdev
+        platform: linux/amd64
+        ports:
+            - 8000:8000
+            - 8088:8088
+        image: splunk/splunk:9.1.0.1
+        command: start
+
+# Command:
+# docker-compose -f ./config/splunk_deploy.yaml up -d
